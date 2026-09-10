@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gemini 智能助理工具 (官方 API 直接連線版)</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght=300;400;500;700&family=Space+Mono:wght=400;700&display=swap');
+
+  :root {
+    --bg: #0d0f14;
+    --surface: #151821;
+    --surface2: #1c2030;
+    --border: #2a3045;
+    --accent: #4f9cf9;
+    --accent2: #7c3aed;
+    --text: #e2e8f0;
+    --text-muted: #64748b;
+    --success: #10b981;
+    --error: #ef4444;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Noto Sans TC', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px;
+    background-image: radial-gradient(circle at 50% 0%, #1c2030 0%, #0d0f14 70%);
+  }
+
+  .container { width: 100%; max-width: 1000px; }
+
+  header { text-align: center; margin-bottom: 40px; }
+  h1 { font-size: 2.5rem; font-weight: 700; background: linear-gradient(135deg, #4f9cf9, #7c3aed); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 10px; }
+  .badge { background: var(--surface2); padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; color: var(--accent); border: 1px solid var(--border); }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 24px; padding: 32px; box-shadow: 0 20px 40px rgba(0,0,0,0.4); margin-bottom: 30px; position: relative; overflow: hidden; }
+  .card::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 4px; background: linear-gradient(90deg, var(--accent), var(--accent2)); }
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
+  @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
+
+  label { display: block; font-size: 0.9rem; font-weight: 500; color: var(--text-muted); margin-bottom: 8px; margin-left: 4px; }
+
+  textarea, select, input {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; color: var(--text); padding: 14px; font-size: 1rem; transition: all 0.3s; font-family: inherit;
+  }
+  textarea:focus, select:focus, input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px rgba(79, 156, 249, 0.1); }
+  textarea { min-height: 120px; line-height: 1.6; }
+
+  .btn-primary {
+    width: 100%; background: linear-gradient(135deg, var(--accent), var(--accent2)); color: white; border: none; padding: 16px; border-radius: 12px; font-size: 1.1rem; font-weight: 600; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; margin-top: 10px;
+  }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(79, 156, 249, 0.3); }
+  .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+  #response-section { display: none; }
+  .response-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  .response-box {
+    background: #1a1d29; border: 1px solid var(--border); border-radius: 16px; padding: 24px; font-size: 1.05rem; line-height: 1.8; white-space: pre-wrap; color: #e2e8f0; max-height: 600px; overflow-y: auto; scroll-behavior: smooth;
+  }
+
+  .status-tag { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: 500; }
+  .status-ok { color: var(--success); }
+  .status-err { color: var(--error); }
+
+  .url-preview { background: #090b10; border-radius: 8px; padding: 12px; font-family: 'Space Mono', monospace; font-size: 0.75rem; color: var(--text-muted); word-break: break-all; margin-top: 20px; border: 1px dashed var(--border); }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <h1>Gemini 智能助理工具</h1>
+    <span class="badge">Engine v2.5 - Gemini Direct Core</span>
+  </header>
+
+  <div class="card">
+    <div class="grid">
+      <div>
+        <label>模型名稱</label>
+        <select id="model">
+          <option value="gemini-2.5-flash">Gemini 2.5 Flash (推薦：快速平衡)</option>
+          <option value="gemini-2.5-pro">Gemini 2.5 Pro (最強推理)</option>
+          <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+        </select>
+      </div>
+      <div>
+        <label>創意溫度 (Temperature)</label>
+        <input type="number" id="temp" value="0.7" step="0.1" min="0" max="2">
+      </div>
+    </div>
+
+    <label>系統指令 (System Prompt)</label>
+    <textarea id="system" placeholder="定義 AI 的角色（例如：你是一位專業秘書...）"></textarea>
+
+    <label>使用者輸入 (Prompt)</label>
+    <textarea id="prompt" placeholder="請輸入您的問題或會議逐字稿內容..."></textarea>
+
+    <button class="btn-primary" id="run-btn" onclick="runQuery()">▶ 執行查詢</button>
+    
+    <div class="url-preview" id="url-preview">
+      支援 URL 參數: ?prompt=...&system=...&autorun=1
+    </div>
+  </div>
+
+  <div id="response-section" class="card">
+    <div class="response-header">
+      <div class="status-tag" id="status-tag">準備就緒</div>
+      <button onclick="clearAll()" style="background:none; border:none; color:var(--accent); cursor:pointer; font-size:0.85rem;">✕ 清除結果</button>
+    </div>
+    <div id="response-content" class="response-box"></div>
+  </div>
+</div>
+
+<script>
+// 請更換為您新申請的 API Key
+const API_KEY = "AIzaSyA2aAl8_HNvwdat_RTiWwEFM_Zl-YjkfGc"; 
+
+function updateUrlPreview() {
+  const p = encodeURIComponent(document.getElementById('prompt').value.substring(0, 50));
+  const s = encodeURIComponent(document.getElementById('system').value.substring(0, 30));
+  document.getElementById('url-preview').textContent = `${location.origin}${location.pathname}?prompt=${p}...&system=${s}...&autorun=1`;
+}
+
+function loadFromUrl() {
+  const params = new URLSearchParams(location.search);
+  if (params.has('prompt')) document.getElementById('prompt').value = params.get('prompt');
+  if (params.has('system')) document.getElementById('system').value = params.get('system');
+  if (params.has('model')) document.getElementById('model').value = params.get('model');
+  if (params.has('temp')) document.getElementById('temp').value = params.get('temp');
+  
+  if (params.get('autorun') === '1') {
+    setTimeout(runQuery, 500);
+  }
+}
+
+async function runQuery() {
+  const prompt = document.getElementById('prompt').value.trim();
+  const system = document.getElementById('system').value.trim();
+  const model = document.getElementById('model').value;
+  const temp = parseFloat(document.getElementById('temp').value);
+  
+  if (!prompt) return;
+
+  const btn = document.getElementById('run-btn');
+  const section = document.getElementById('response-section');
+  const content = document.getElementById('response-content');
+  const statusTag = document.getElementById('status-tag');
+
+  btn.disabled = true;
+  btn.textContent = '思考中...';
+  section.style.display = 'block';
+  content.textContent = '';
+  statusTag.textContent = '● Gemini 正在連線...';
+  statusTag.className = 'status-tag';
+
+  let fullText = '';
+  const startTime = Date.now();
+
+  // Gemini 官方 Stream API 節點與 URL 格式
+  const GOOGLE_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?key=${API_KEY}`;
+
+  try {
+    // 構建 Gemini 官方要求的 Payload 格式
+    const contents = [{ role: 'user', parts: [{ text: prompt }] }];
+    const systemInstruction = system ? { parts: [{ text: system }] } : undefined;
+
+    const response = await fetch(GOOGLE_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        contents: contents,
+        systemInstruction: systemInstruction,
+        generationConfig: {
+          temperature: temp
+        }
+      })
+    });
+
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(errData.error?.message || `HTTP ${response.status}`);
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      
+      buffer += decoder.decode(value, { stream: true });
+      
+      // 處理 Google Stream 返回的 JSON Array 碎片
+      // Google 的 stream 格式通常是一個巨大的 JSON Array 隨著時間推移不斷補上元素
+      // 這裡採用極簡的正規表達式抓取 text 欄位，效率高且不易受 JSON 斷裂影響
+      const regex = /"text"\s*:\s*"((?:[^"\\]|\\.)*)"/g;
+      let match;
+      let lastIndex = 0;
+      
+      // 每次讀取新區塊，重新比對新出現的 text 內容
+      // 由於 Google 的機制的特性，直接解析全文字串並與上一次比對
+      try {
+        const parsed = JSON.parse(buffer + (buffer.endsWith(']') ? '' : ']'));
+        let currentFullText = '';
+        if (Array.isArray(parsed)) {
+          parsed.forEach(chunk => {
+            const text = chunk.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (text) currentFullText += text;
+          });
+          fullText = currentFullText;
+          content.textContent = fullText;
+          content.scrollTop = content.scrollHeight;
+        }
+      } catch (e) {
+        // 如果 JSON 尚未完整閉合，利用 Regex 做極低延遲的即時預解析
+        // 此處防呆，等待下個 Chunk 注入
+      }
+    }
+
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+    statusTag.textContent = `✓ 完成 · ${elapsed}s · ${model}`;
+    statusTag.className = 'status-tag status-ok';
+
+    // ── 方案三：localStorage 橋接回傳 ──
+    const callbackMode = new URLSearchParams(location.search).get('callback');
+    if (callbackMode === 'localstorage') {
+      localStorage.setItem('ai_result', JSON.stringify({
+        content: fullText,
+        model: model,
+        timestamp: Date.now()
+      }));
+    }
+
+    // 保留舊有的 window.opener postMessage 相容性
+    if (window.opener) {
+      try {
+        window.opener.postMessage({
+          type: 'AI_RESULT_COMPLETE',
+          content: fullText,
+          model: model
+        }, '*');
+      } catch(e) {}
+    }
+
+  } catch (err) {
+    content.textContent = `錯誤：${err.message}\n(提示：請檢查 API Key 是否正確且未過期，或模型名稱是否支援。)\n若使用本地端開啟，請確保無跨網域(CORS)限制。`;
+    statusTag.textContent = '✗ 請求失敗';
+    statusTag.className = 'status-tag status-err';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '▶ 執行查詢';
+  }
+}
+
+function clearAll() {
+  document.getElementById('prompt').value = '';
+  document.getElementById('system').value = '';
+  document.getElementById('response-section').style.display = 'none';
+  updateUrlPreview();
+}
+
+window.addEventListener('message', function(event) {
+    if (event.data.type === 'START_AI_TASK') {
+        if (event.data.prompt) document.getElementById('prompt').value = event.data.prompt;
+        if (event.data.system) document.getElementById('system').value = event.data.system;
+        runQuery();
+    }
+});
+
+loadFromUrl();
+['prompt','system','model','temp'].forEach(id => {
+  document.getElementById(id).addEventListener('input', updateUrlPreview);
+});
+</script>
+
+</body>
+</html>
