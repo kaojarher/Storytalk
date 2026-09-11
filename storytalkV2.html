@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Eden RPG - 互動式 AI 角色扮演與文字冒險平台</title>
+<!-- Bootstrap 5 CSS & FontAwesome -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=Fira+Code:wght@400;500&display=swap');
+
+  :root {
+    --bg-dark: #f8fafc;
+    --sidebar-bg: #ffffff;
+    --card-bg: #ffffff;
+    --card-accent: #f1f5f9;
+    --border-color: #e2e8f0;
+    --accent-blue: #2563eb;
+    --accent-purple: #7c3aed;
+    --accent-cyan: #0891b2;
+    --accent-gold: #d97706;
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --text-muted: #64748b;
+    --base-font-size: 1rem;
+  }
+
+  body {
+    font-family: 'Noto Sans TC', sans-serif;
+    background-color: var(--bg-dark);
+    color: var(--text-primary);
+    min-height: 100vh;
+    overflow-x: hidden;
+    font-size: var(--base-font-size);
+  }
+
+  .sidebar {
+    width: 280px;
+    background-color: var(--sidebar-bg);
+    border-right: 1px solid var(--border-color);
+    height: 100vh;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1050;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.3s ease;
+  }
+
+  .sidebar-header {
+    padding: 20px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .brand-logo {
+    font-size: 1.6rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .nav-menu {
+    padding: 15px 10px;
+    flex-grow: 1;
+    overflow-y: auto;
+  }
+
+  .nav-item-btn {
+    width: 100%;
+    padding: 12px 16px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    transition: all 0.2s;
+    margin-bottom: 4px;
+    text-align: left;
+  }
+
+  .nav-item-btn:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+    color: var(--text-primary);
+  }
+
+  .nav-item-btn.active {
+    background: linear-gradient(90deg, rgba(37, 99, 235, 0.1), transparent);
+    color: var(--accent-blue);
+    border-left: 3px solid var(--accent-blue);
+  }
+
+  .section-divider {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 12px 16px 6px;
+  }
+
+  .main-content {
+    margin-left: 280px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .top-navbar {
+    height: 60px;
+    background-color: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    position: sticky;
+    top: 0;
+    z-index: 900;
+  }
+
+  .search-box {
+    max-width: 250px;
+  }
+
+  .chat-container {
+    flex-grow: 1;
+    padding: 24px;
+    max-width: 900px;
+    width: 100%;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .message-card {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+    position: relative;
+  }
+
+  .message-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+  }
+
+  .message-role {
+    font-weight: 700;
+    color: var(--accent-cyan);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .user-msg .message-role {
+    color: var(--accent-gold);
+  }
+
+  .message-body {
+    line-height: 1.7;
+    white-space: pre-wrap;
+    font-size: 1em;
+  }
+
+  .info-panel {
+    background-color: var(--card-accent);
+    border: 1px solid var(--border-color);
+    border-left: 4px solid var(--accent-blue);
+    border-radius: 12px;
+    padding: 16px;
+    margin-top: 16px;
+    font-size: 0.9em;
+  }
+
+  .info-title {
+    font-weight: 700;
+    color: var(--accent-blue);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    letter-spacing: 1px;
+  }
+
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 10px;
+  }
+
+  .info-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-secondary);
+  }
+
+  .info-item strong {
+    color: var(--text-primary);
+  }
+
+  .input-section {
+    position: sticky;
+    bottom: 0;
+    background: rgba(248, 250, 252, 0.95);
+    backdrop-filter: blur(12px);
+    border-top: 1px solid var(--border-color);
+    padding: 16px 24px;
+    z-index: 900;
+  }
+
+  .input-box-wrapper {
+    max-width: 900px;
+    margin: 0 auto;
+    position: relative;
+  }
+
+  .chat-input {
+    width: 100%;
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    color: var(--text-primary);
+    padding: 14px 110px 14px 18px;
+    font-size: 0.98rem;
+    resize: none;
+    min-height: 60px;
+    max-height: 180px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .chat-input:focus {
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+  }
+
+  .send-btn {
+    position: absolute;
+    right: 10px;
+    bottom: 12px;
+    background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+    border: none;
+    color: white;
+    padding: 8px 18px;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+
+  .send-btn:hover {
+    opacity: 0.9;
+  }
+
+  .modal-content {
+    background-color: var(--sidebar-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    border-radius: 16px;
+  }
+
+  .modal-header {
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .modal-footer {
+    border-top: 1px solid var(--border-color);
+  }
+
+  .form-control, .form-select {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    border-radius: 10px;
+  }
+
+  .form-control:focus, .form-select:focus {
+    background-color: var(--card-bg);
+    border-color: var(--accent-blue);
+    color: var(--text-primary);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+  }
+
+  .mobile-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.4);
+    z-index: 1040;
+  }
+
+  .mobile-overlay.active {
+    display: block;
+  }
+
+  .mobile-menu-btn, .sidebar-close-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-size: 1.3rem;
+    padding: 6px 10px;
+    border-radius: 8px;
+  }
+
+  @media (max-width: 992px) {
+    .sidebar {
+      transform: translateX(-100%);
+    }
+    .sidebar.open {
+      transform: translateX(0);
+    }
+    .main-content {
+      margin-left: 0;
+    }
+    .mobile-menu-btn {
+      display: inline-block !important;
+    }
+    .top-navbar {
+      padding: 0 16px;
+    }
+    .chat-container {
+      padding: 16px;
+    }
+  }
+
+  @media (min-width: 993px) {
+    .mobile-menu-btn, .sidebar-close-btn {
+      display: none !important;
+    }
+  }
+</style>
+</head>
+<body>
+
+<iframe id="aiToolIframe" src="./ai-tool.html" style="display: none;"></iframe>
+
+<div class="mobile-overlay" id="mobileOverlay" onclick="toggleSidebar()"></div>
+
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <div class="brand-logo"><i class="fa-solid fa-gem"></i> Eden AI</div>
+    <button class="sidebar-close-btn" onclick="toggleSidebar()"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+  
+  <div class="nav-menu">
+    <button class="nav-item-btn active" id="btnNavChat" onclick="switchTab('chat')">
+      <i class="fa-solid fa-house"></i> 故事對話
+    </button>
+    <button class="nav-item-btn" onclick="startNewGame()">
+      <i class="fa-solid fa-plus"></i> 新聊天室
+    </button>
+    <button class="nav-item-btn" onclick="openModal('savesModal')">
+      <i class="fa-solid fa-floppy-disk"></i> 存檔與歷史紀錄
+    </button>
+    <button class="nav-item-btn" onclick="resetChat()">
+      <i class="fa-solid fa-rotate-right"></i> 重整對話
+    </button>
+
+    <div class="section-divider">故事設定與設定檔</div>
+    
+    <button class="nav-item-btn" onclick="openModal('characterModal')">
+      <i class="fa-solid fa-masks-theater"></i> 人設與我的角色
+    </button>
+    <button class="nav-item-btn" onclick="openModal('memoryModal')">
+      <i class="fa-solid fa-brain"></i> 長期記憶與筆記
+    </button>
+    <button class="nav-item-btn" onclick="openModal('modelModal')">
+      <i class="fa-solid fa-sliders"></i> 模型與進階設定
+    </button>
+    <button class="nav-item-btn" onclick="openModal('uiModal')">
+      <i class="fa-solid fa-palette"></i> 畫面與字體設定
+    </button>
+
+    <div class="section-divider">本地資料管理 (.md)</div>
+
+    <button class="nav-item-btn" onclick="exportMarkdown()">
+      <i class="fa-solid fa-file-export"></i> 匯出冒險記錄 (.md)
+    </button>
+    <button class="nav-item-btn" onclick="triggerImport()">
+      <i class="fa-solid fa-file-import"></i> 匯入冒險記錄 (.md)
+    </button>
+    <input type="file" id="importFileInput" accept=".md" style="display: none;" onchange="importMarkdown(event)">
+  </div>
+</aside>
+
+<main class="main-content">
+  <header class="top-navbar">
+    <div class="d-flex align-items-center gap-2">
+      <button class="mobile-menu-btn" onclick="toggleSidebar()" aria-label="選單">
+        <i class="fa-solid fa-bars"></i>
+      </button>
+      <h6 class="mb-0 fw-bold" id="currentStoryTitle"><i class="fa-solid fa-book-bookmark text-primary me-2"></i>奧瑞莉亞 1026</h6>
+    </div>
+
+    <!-- 搜尋框與統計標籤 -->
+    <div class="d-flex align-items-center gap-2">
+      <div class="input-group input-group-sm search-box">
+        <span class="input-group-text bg-transparent border-end-0"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
+        <input type="text" id="searchInput" class="form-control border-start-0" placeholder="搜尋對話..." oninput="filterChat()">
+      </div>
+      <span class="badge bg-light text-dark border px-2 py-2 d-none d-md-inline-block" id="statsBadge">
+        <i class="fa-solid fa-font me-1"></i> 0 字 / 0 條
+      </span>
+      <span class="badge bg-light text-dark border px-3 py-2" id="modelBadge">
+        <i class="fa-solid fa-robot text-primary me-1"></i> AI Tool 內建模型
+      </span>
+    </div>
+  </header>
+
+  <div class="chat-container" id="chatContainer"></div>
+
+  <div class="input-section">
+    <div class="input-box-wrapper">
+      <textarea id="userInput" class="chat-input" placeholder="請輸入行動或對話..." rows="1" onkeydown="handleKeyDown(event)"></textarea>
+      <button class="send-btn" id="sendBtn" onclick="sendMessage()">發送 <i class="fa-solid fa-paper-plane ms-1"></i></button>
+    </div>
+  </div>
+</main>
+
+<!-- Modal: 存檔與歷史紀錄 -->
+<div class="modal fade" id="savesModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fa-solid fa-floppy-disk text-primary me-2"></i>冒險存檔管理</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="d-flex justify-content-between mb-3">
+          <button class="btn btn-sm btn-primary" onclick="quickSave()"><i class="fa-solid fa-download me-1"></i> 儲存當前進度</button>
+          <span class="text-muted small">點擊讀取快照或切換存檔</span>
+        </div>
+        <div class="list-group" id="savesList"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal 1: 人設與角色設定 -->
+<div class="modal fade" id="characterModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fa-solid fa-user-gear text-primary me-2"></i>人設與玩家設定</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label fw-bold">世界觀與故事背景 (System Prompt)</label>
+          <textarea class="form-control" id="worldPrompt" rows="4">你是一個 TRPG 遊戲主持人。背景：奧瑞莉亞帝國歷 1026 年，治安由傭兵與地方官署維持。請在每次回覆的最後附上 INFO 狀態區塊（包括時間、地點、玩家名稱、裝備、持有物與當前目標）。</textarea>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-bold">玩家角色設定 (User Persona)</label>
+          <input type="text" class="form-control mb-2" id="charName" value="User88548615" placeholder="玩家名稱">
+          <textarea class="form-control" id="charTraits" rows="3" placeholder="玩家性格、屬性或初始裝備...">職業：新手探險者 | 武裝：空手 | 防具：便服 | 持有物：斷裂的繩索</textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">保存設定</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal 2: 長期記憶與筆記 -->
+<div class="modal fade" id="memoryModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fa-solid fa-brain text-warning me-2"></i>長期記憶與使用者筆記</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted small">這些資訊將作為故事的「核心記憶」持續提供給 AI 模型。</p>
+        <textarea class="form-control" id="longMemory" rows="6" placeholder="輸入關鍵劇情摘要、NPC好感度或特殊地標資訊...">- 艾莉卡：鬥氣探索者，目前同行中，對玩家表現出信任。
+- 當前位置：森林深處的岩石遮蔽處。
+- 當前任務：歇息過夜後啟程前往西北方。</textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">更新記憶</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal 3: 模型與進階設定 -->
+<div class="modal fade" id="modelModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fa-solid fa-sliders text-info me-2"></i>AI 模型與參數設定</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label fw-bold">AI 模型</label>
+          <div class="form-control bg-light d-flex align-items-center justify-content-between" style="cursor: default;">
+            <span><i class="fa-solid fa-robot text-primary me-2"></i>由 AI 工具 (ai-tool.html) 內建模型決定</span>
+            <span class="badge bg-secondary" id="detectedModelTag">尚未偵測</span>
+          </div>
+          <div class="form-text">不需要在此手動選擇模型，實際使用的模型完全由 ai-tool.html 內部設定與金鑰權限決定；此處僅顯示最近一次回覆實際使用的模型名稱。</div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-bold">創意度 (Temperature): <span id="tempValue" class="text-primary fw-bold">0.7</span></label>
+          <input type="range" class="form-range" id="tempRange" min="0" max="1.5" step="0.1" value="0.7" oninput="updateTempDisplay()">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" onclick="saveModelSettings()">保存並套用</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal 4: 畫面與字體設定 -->
+<div class="modal fade" id="uiModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fa-solid fa-palette text-purple me-2"></i>畫面與字體設定</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label fw-bold">對話文字大小</label>
+          <select class="form-select" id="fontSizeSelect" onchange="applyFontSize(this.value)">
+            <option value="0.9rem">精小 (0.9rem)</option>
+            <option value="1rem" selected>標準 (1.0rem)</option>
+            <option value="1.15rem">放大 (1.15rem)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Bootstrap 5 JS Bundle -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/bootstrap.bundle.min.js"></script>
+
+<script>
+let chatHistory = [
+  {
+    role: "model",
+    content: `【基本開始】\n帝國歷 1026 年。\n奧瑞莉亞帝國已維持了千年沒有戰爭的和平。\n和平並不代表沒有犯罪。地方官署逮捕犯罪，法院判定刑期，監獄與勞役場則接收被分配的人數。若衛兵隊人手不足，押送工作便會外包給傭兵公會。\n\n途經森林道路的囚犯押送隊，也是這類行政程序的一部分。`,
+    info: {
+      time: "第 1 天 (帝國歷 1026 年 4 月 12 日) 21:50 夜晚",
+      location: "森林深處的岩石遮蔽處",
+      user: "User88548615 | 新手",
+      weapons: "空手 [新品] | 防具: 便服 [磨損]",
+      items: "斷裂的繩索 | 0 韓元",
+      npc: "艾莉卡 | 鬥氣探索者 (信任·放鬆)",
+      target: "在岩石遮蔽處歇息度過夜晚，明晨啟程前往西北方"
+    }
+  }
+];
+
+let saves = [];
+
+document.addEventListener("DOMContentLoaded", () => {
+  loadSavesFromStorage();
+  renderChat();
+  updateModelBadge();
+});
+
+window.addEventListener('message', (event) => {
+  const sendBtn = document.getElementById('sendBtn');
+  sendBtn.disabled = false;
+  sendBtn.innerHTML = `發送 <i class="fa-solid fa-paper-plane ms-1"></i>`;
+
+  const data = event.data;
+  if (!data) return;
+
+  if (data.status === 'success') {
+    const aiReply = data.text || '';
+    const parsed = parseAiResponse(aiReply);
+    chatHistory.push({
+      role: 'model',
+      content: parsed.storyText,
+      info: parsed.infoObj
+    });
+
+    // 記錄並顯示 ai-tool.html 實際使用的模型（該模型完全由 ai-tool.html 內部決定）
+    if (data.model) {
+      currentModelName = data.model;
+      updateModelBadge();
+      const tag = document.getElementById('detectedModelTag');
+      if (tag) {
+        tag.textContent = data.model;
+        tag.className = 'badge bg-success';
+      }
+    }
+  } else if (data.status === 'error') {
+    chatHistory.push({
+      role: 'model',
+      content: `❌ [AI 工具連線失敗]：${data.error || '無法從 ai-tool.html 取得回應'}`
+    });
+  }
+  renderChat();
+});
+
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('mobileOverlay');
+  sidebar.classList.toggle('open');
+  overlay.classList.toggle('active');
+}
+
+function autoCloseSidebarOnMobile() {
+  if (window.innerWidth <= 992) {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('mobileOverlay');
+    sidebar.classList.remove('open');
+    overlay.classList.remove('active');
+  }
+}
+
+function openModal(modalId) {
+  autoCloseSidebarOnMobile();
+  if (modalId === 'savesModal') renderSavesList();
+  const modalEl = document.getElementById(modalId);
+  if (modalEl) {
+    const bsModal = new bootstrap.Modal(modalEl);
+    bsModal.show();
+  }
+}
+
+function switchTab(tabName) {
+  autoCloseSidebarOnMobile();
+  if (tabName === 'chat') {
+    document.getElementById('btnNavChat').classList.add('active');
+  }
+}
+
+function triggerImport() {
+  autoCloseSidebarOnMobile();
+  document.getElementById('importFileInput').click();
+}
+
+function applyFontSize(size) {
+  document.documentElement.style.setProperty('--base-font-size', size);
+}
+
+function updateTempDisplay() {
+  const tempVal = document.getElementById('tempRange').value;
+  document.getElementById('tempValue').innerText = tempVal;
+}
+
+// 實際使用的模型名稱，由 ai-tool.html 回傳結果時動態更新（見下方 message 監聽器）
+let currentModelName = null;
+
+function updateModelBadge() {
+  const tempVal = document.getElementById('tempRange').value;
+  const label = currentModelName ? currentModelName : 'AI Tool 內建模型';
+  document.getElementById('modelBadge').innerHTML = `<i class="fa-solid fa-robot text-primary me-1"></i> ${label} (${tempVal})`;
+}
+
+function saveModelSettings() {
+  updateModelBadge();
+  const modalEl = document.getElementById('modelModal');
+  const bsModal = bootstrap.Modal.getInstance(modalEl);
+  if (bsModal) bsModal.hide();
+}
+
+function updateStats() {
+  let totalChars = 0;
+  chatHistory.forEach(msg => totalChars += msg.content.length);
+  document.getElementById('statsBadge').innerHTML = `<i class="fa-solid fa-font me-1"></i> ${totalChars} 字 / ${chatHistory.length} 條`;
+}
+
+function renderChat(filteredHistory = null) {
+  const container = document.getElementById('chatContainer');
+  container.innerHTML = '';
+  const listToRender = filteredHistory || chatHistory;
+
+  listToRender.forEach((msg, idx) => {
+    const card = document.createElement('div');
+    const isUser = msg.role === 'user';
+    card.className = `message-card ${isUser ? 'user-msg' : ''}`;
+    
+    let infoHtml = '';
+    if (msg.info) {
+      infoHtml = `
+        <div class="info-panel">
+          <div class="info-title"><i class="fa-solid fa-circle-info"></i> INFO 狀態面板</div>
+          <div class="info-grid">
+            <div class="info-item"><i class="fa-regular fa-clock text-info"></i> <strong>時間：</strong> ${msg.info.time || '未知'}</div>
+            <div class="info-item"><i class="fa-solid fa-location-dot text-danger"></i> <strong>地點：</strong> ${msg.info.location || '未知'}</div>
+            <div class="info-item"><i class="fa-solid fa-user text-warning"></i> <strong>角色：</strong> ${msg.info.user || '玩家'}</div>
+            <div class="info-item"><i class="fa-solid fa-shield-halved text-success"></i> <strong>裝備：</strong> ${msg.info.weapons || '無'}</div>
+            <div class="info-item"><i class="fa-solid fa-bag-shopping text-primary"></i> <strong>持有物：</strong> ${msg.info.items || '無'}</div>
+            <div class="info-item"><i class="fa-solid fa-users text-purple"></i> <strong>同行者：</strong> ${msg.info.npc || '無'}</div>
+            <div class="info-item" style="grid-column: 1 / -1;"><i class="fa-solid fa-bullseye text-danger"></i> <strong>目標：</strong> ${msg.info.target || '自由探索'}</div>
+          </div>
+        </div>
+      `;
+    }
+
+    const roleName = isUser ? (document.getElementById('charName').value || '玩家') : 'Eden AI 故事主持人';
+    const icon = isUser ? 'fa-user' : 'fa-robot';
+
+    card.innerHTML = `
+      <div class="message-header">
+        <div class="message-role"><i class="fa-solid ${icon}"></i> ${roleName}</div>
+        <div>#${idx + 1}</div>
+      </div>
+      <div class="message-body">${escapeHtml(msg.content)}</div>
+      ${infoHtml}
+    `;
+    container.appendChild(card);
+  });
+
+  updateStats();
+  if (!filteredHistory) {
+    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+  }
+}
+
+function filterChat() {
+  const query = document.getElementById('searchInput').value.toLowerCase().trim();
+  if (!query) {
+    renderChat();
+    return;
+  }
+  const filtered = chatHistory.filter(msg => msg.content.toLowerCase().includes(query));
+  renderChat(filtered);
+}
+
+function escapeHtml(text) {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function sendMessage() {
+  const inputEl = document.getElementById('userInput');
+  const text = inputEl.value.trim();
+  if (!text) return;
+
+  chatHistory.push({ role: 'user', content: text });
+  inputEl.value = '';
+  renderChat();
+
+  const sendBtn = document.getElementById('sendBtn');
+  sendBtn.disabled = true;
+  sendBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span> 生成中...`;
+
+  const systemPrompt = document.getElementById('worldPrompt').value;
+  const longMemory = document.getElementById('longMemory').value;
+  const charTraits = document.getElementById('charTraits').value;
+  const temp = parseFloat(document.getElementById('tempRange').value);
+
+  const fullSystemMessage = `${systemPrompt}\n\n[長期記憶與背景]\n${longMemory}\n\n[玩家角色資料]\n${charTraits}\n\n請續寫故事並輸出 ---INFO--- 區塊。`;
+
+  const payload = {
+    action: 'generate',
+    // 不指定 model，讓 ai-tool.html 直接套用其內建（且金鑰有權限使用）的模型
+    temperature: temp,
+    systemInstruction: fullSystemMessage,
+    messages: chatHistory
+  };
+
+  const iframe = document.getElementById('aiToolIframe');
+  if (iframe && iframe.contentWindow) {
+    iframe.contentWindow.postMessage(payload, '*');
+  } else {
+    chatHistory.push({ role: 'model', content: `❌ [載入失敗]：找不到 ai-tool.html。` });
+    sendBtn.disabled = false;
+    sendBtn.innerHTML = `發送 <i class="fa-solid fa-paper-plane ms-1"></i>`;
+    renderChat();
+  }
+}
+
+function parseAiResponse(text) {
+  let storyText = text;
+  let infoObj = null;
+
+  if (text.includes('---INFO---') || text.includes('INFO')) {
+    const parts = text.split(/---INFO---|INFO/);
+    storyText = parts[0].trim();
+    const infoText = parts[1] ? parts[1].trim() : '';
+
+    if (infoText) {
+      infoObj = {
+        time: extractField(infoText, '時間'),
+        location: extractField(infoText, '地點'),
+        user: extractField(infoText, '角色'),
+        weapons: extractField(infoText, '裝備'),
+        items: extractField(infoText, '持有物'),
+        npc: extractField(infoText, '同行者'),
+        target: extractField(infoText, '目標')
+      };
+    }
+  }
+
+  return { storyText, infoObj };
+}
+
+function extractField(text, fieldName) {
+  const reg = new RegExp(`${fieldName}[：:]\s*(.+)`, 'i');
+  const match = text.match(reg);
+  return match ? match[1].trim() : '';
+}
+
+function handleKeyDown(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+}
+
+function resetChat() {
+  autoCloseSidebarOnMobile();
+  if (confirm('確定要重整對話歷史嗎？')) {
+    chatHistory = [chatHistory[0]];
+    renderChat();
+  }
+}
+
+function startNewGame() {
+  autoCloseSidebarOnMobile();
+  if (confirm('開啟新冒險將清空當前對話。')) {
+    chatHistory = [{ role: "model", content: `【全新冒險開啟】\n請輸入你的行動以開始探索。` }];
+    renderChat();
+  }
+}
+
+/* LocalStorage 快照與存檔邏輯 */
+function quickSave() {
+  const title = prompt("請輸入此存檔名稱：", `紀錄 ${new Date().toLocaleString()}`);
+  if (!title) return;
+
+  const newSave = {
+    id: Date.now(),
+    title: title,
+    time: new Date().toLocaleString(),
+    data: JSON.parse(JSON.stringify(chatHistory))
+  };
+
+  saves.unshift(newSave);
+  localStorage.setItem('eden_rpg_saves', JSON.stringify(saves));
+  renderSavesList();
+}
+
+function loadSavesFromStorage() {
+  const savedStr = localStorage.getItem('eden_rpg_saves');
+  if (savedStr) {
+    try { saves = JSON.parse(savedStr); } catch(e) { saves = []; }
+  }
+}
+
+function renderSavesList() {
+  const listEl = document.getElementById('savesList');
+  if (saves.length === 0) {
+    listEl.innerHTML = `<div class="text-center text-muted py-4">目前尚無存檔快照</div>`;
+    return;
+  }
+  listEl.innerHTML = '';
+  saves.forEach(s => {
+    const item = document.createElement('div');
+    item.className = 'list-group-item d-flex justify-content-between align-items-center';
+    item.innerHTML = `
+      <div>
+        <h6 class="mb-1 fw-bold">${escapeHtml(s.title)}</h6>
+        <small class="text-muted"><i class="fa-regular fa-clock me-1"></i>${s.time} (${s.data.length} 條紀錄)</small>
+      </div>
+      <div>
+        <button class="btn btn-sm btn-outline-primary me-2" onclick="loadSave(${s.id})">載入</button>
+        <button class="btn btn-sm btn-outline-danger" onclick="deleteSave(${s.id})"><i class="fa-solid fa-trash"></i></button>
+      </div>
+    `;
+    listEl.appendChild(item);
+  });
+}
+
+function loadSave(id) {
+  const target = saves.find(s => s.id === id);
+  if (target) {
+    chatHistory = JSON.parse(JSON.stringify(target.data));
+    renderChat();
+    const modalEl = document.getElementById('savesModal');
+    const bsModal = bootstrap.Modal.getInstance(modalEl);
+    if (bsModal) bsModal.hide();
+  }
+}
+
+function deleteSave(id) {
+  saves = saves.filter(s => s.id !== id);
+  localStorage.setItem('eden_rpg_saves', JSON.stringify(saves));
+  renderSavesList();
+}
+
+function exportMarkdown() {
+  autoCloseSidebarOnMobile();
+  let mdContent = `# Eden RPG 冒險對話記錄\n\n> 匯出時間：${new Date().toLocaleString()}\n\n---\n\n`;
+  chatHistory.forEach((msg, i) => {
+    mdContent += `### #${i + 1} ${msg.role === 'user' ? '👤 玩家' : '🤖 Eden AI'}\n\n${msg.content}\n\n---\n\n`;
+  });
+  const blob = new Blob([mdContent], { type: 'text/markdown;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Eden_RPG_Save_${new Date().toISOString().slice(0,10)}.md`;
+  a.click();
+}
+
+function importMarkdown(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) { parseMarkdownToChat(e.target.result); };
+  reader.readAsText(file);
+}
+
+function parseMarkdownToChat(mdText) {
+  try {
+    const sections = mdText.split(/^###\s+#/m).filter(Boolean);
+    const newHistory = [];
+    sections.forEach(sec => {
+      const lines = sec.trim().split('\n');
+      const header = lines.shift() || '';
+      const isUser = header.includes('👤 玩家') || header.includes('User');
+      const bodyText = lines.filter(l => !l.startsWith('---')).join('\n').trim();
+      if (bodyText) newHistory.push({ role: isUser ? 'user' : 'model', content: bodyText });
+    });
+    if (newHistory.length > 0) {
+      chatHistory = newHistory;
+      renderChat();
+      alert('成功匯入歷史記錄！');
+    }
+  } catch (err) { alert('解析 Markdown 失敗'); }
+}
+</script>
+</body>
+</html>

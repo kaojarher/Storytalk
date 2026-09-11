@@ -72,6 +72,8 @@
 
   .url-preview { background: #090b10; border-radius: 8px; padding: 12px; font-family: 'Space Mono', monospace; font-size: 0.75rem; color: var(--text-muted); word-break: break-all; margin-top: 20px; border: 1px dashed var(--border); }
 </style>
+<!-- Puter.js：免 API Key、免後端的 AI 服務 -->
+<script src="https://js.puter.com/v2/"></script>
 </head>
 <body>
 
@@ -86,14 +88,15 @@
       <div>
         <label>模型名稱</label>
         <select id="model">
-          <option value="gemini-3.8-flash">Gemini 3.8 Flash (最新最強)</option>
-          <option value="gemini-3.6-flash" selected>Gemini 3.6 Flash (推薦，速度與品質平衡)</option>
-          <option value="gemini-3.5-flash-lite">Gemini 3.5 Flash-Lite (最快最省)</option>
+          <option value="claude-sonnet-4-6" selected>Claude Sonnet 4.6 (推薦，敘事品質佳)</option>
+          <option value="gpt-5.6-luna">GPT-5.6 Luna (OpenAI 旗艦)</option>
+          <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash-Lite (最快)</option>
+          <option value="x-ai/grok-4.6">Grok 4.6 (xAI)</option>
         </select>
       </div>
       <div>
         <label>創意溫度 (Temperature)</label>
-        <input type="number" id="temp" value="0.7" step="0.1" min="0" max="1">
+        <input type="number" id="temp" value="0.7" step="0.1" min="0" max="2">
       </div>
     </div>
 
@@ -121,22 +124,14 @@
 
 <script>
 
-////Gemini API 設定
-const API_KEY = "AIzaSyAObqk5sgEjHlAA6nz0YTL-RvbLMS-l0HY";
-const API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
+////Puter.js 設定：完全免費、免金鑰，透過使用者自己的 Puter 帳號額度運作
 // 外部呼叫者（如 storytalk.html）若沒有指定模型，或指定的模型不在允許清單中時，改用此預設模型
-const DEFAULT_MODEL = "gemini-3.6-flash";
-const AVAILABLE_MODELS = ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite"];
+const DEFAULT_MODEL = "claude-sonnet-4-6";
+const AVAILABLE_MODELS = ["claude-sonnet-4-6", "gpt-5.6-luna", "gemini-3.1-flash-lite", "x-ai/grok-4.6"];
 
-function generateContentUrl(model, stream) {
-  const method = stream ? 'streamGenerateContent' : 'generateContent';
-  const streamParam = stream ? '&alt=sse' : '';
-  return `${API_BASE}/${model}:${method}?key=${API_KEY}${streamParam}`;
-}
-
-// 將外部呼叫者 (如 storytalk.html) 使用的 role 名稱對應到 Gemini 標準格式（user / model）
+// 將外部呼叫者 (如 storytalk.html) 使用的 role 名稱對應到 Puter/OpenAI 標準格式（user / assistant）
 function mapRole(role) {
-  if (role === 'model' || role === 'assistant') return 'model';
+  if (role === 'model' || role === 'assistant') return 'assistant';
   return 'user';
 }
 
@@ -182,46 +177,23 @@ async function runQuery() {
   const startTime = Date.now();
 
   try {
-    const response = await fetch(generateContentUrl(model, true), {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        contents: [
-          { role: 'user', parts: [{ text: prompt }] }
-        ],
-        ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
-        generationConfig: { temperature: temp }
-      })
+    const messages = [
+      ...(system ? [{ role: 'system', content: system }] : []),
+      { role: 'user', content: prompt }
+    ];
+
+    const resp = await puter.ai.chat(messages, {
+      model: model,
+      temperature: temp,
+      stream: true
     });
 
-    if (!response.ok) {
-      let detail = '';
-      try { detail = await response.text(); } catch (e) {}
-      throw new Error(`HTTP ${response.status}${detail ? ' - ' + detail : ''}`);
-    }
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      
-      const chunk = decoder.decode(value);
-      const lines = chunk.split('\n');
-      for (const line of lines) {
-        if (!line.startsWith('data: ')) continue;
-        const data = line.slice(6).trim();
-        if (!data) continue;
-        try {
-          const json = JSON.parse(data);
-          const delta = json.candidates?.[0]?.content?.parts?.[0]?.text || '';
-          fullText += delta;
-          content.textContent = fullText;
-          content.scrollTop = content.scrollHeight;
-        } catch {}
+    for await (const part of resp) {
+      if (part?.type === 'error') throw new Error(part.message || 'Puter 串流回傳錯誤');
+      if (part?.text) {
+        fullText += part.text;
+        content.textContent = fullText;
+        content.scrollTop = content.scrollHeight;
       }
     }
 
@@ -229,7 +201,7 @@ async function runQuery() {
     statusTag.textContent = `✓ 完成 · ${elapsed}s · ${model}`;
     statusTag.className = 'status-tag status-ok';
 
-    // --- 修改重點：回傳結果給呼叫者 (如 Meeting Assistant) ---
+    // --- 回傳結果給呼叫者 (如 Meeting Assistant，透過 window.open 開啟的情境) ---
     if (window.opener) {
       window.opener.postMessage({
         type: 'AI_RESULT_COMPLETE',
@@ -263,11 +235,10 @@ async function runExternalGenerate(payload, replyTarget) {
   const systemInstruction = payload.systemInstruction || '';
   const historyMessages = Array.isArray(payload.messages) ? payload.messages : [];
 
-  // Gemini 格式：對話內容放在 contents，system prompt 是獨立欄位
-  const geminiContents = historyMessages.map(m => ({
-    role: mapRole(m.role),
-    parts: [{ text: m.content || '' }]
-  }));
+  const messages = [
+    ...(systemInstruction ? [{ role: 'system', content: systemInstruction }] : []),
+    ...historyMessages.map(m => ({ role: mapRole(m.role), content: m.content || '' }))
+  ];
 
   // 同步顯示在（雖然隱藏的）介面上，方便除錯
   try {
@@ -281,26 +252,14 @@ async function runExternalGenerate(payload, replyTarget) {
   const target = replyTarget || (window.parent !== window ? window.parent : window.opener);
 
   try {
-    const response = await fetch(generateContentUrl(model, false), {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        contents: geminiContents,
-        ...(systemInstruction ? { systemInstruction: { parts: [{ text: systemInstruction }] } } : {}),
-        generationConfig: { temperature: temp }
-      })
+    // normalize: true 確保不論底層模型/供應商為何，一律回傳 OpenAI 格式的 message.content 字串
+    const response = await puter.ai.chat(messages, {
+      model: model,
+      temperature: temp,
+      normalize: true
     });
 
-    if (!response.ok) {
-      let detail = '';
-      try { detail = await response.text(); } catch (e) {}
-      throw new Error(`HTTP ${response.status}${detail ? ' - ' + detail : ''}`);
-    }
-
-    const json = await response.json();
-    const text = json.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const text = response?.message?.content || (typeof response === 'string' ? response : '') || '';
 
     // 回填隱藏介面（除錯用）
     try {
@@ -313,7 +272,7 @@ async function runExternalGenerate(payload, replyTarget) {
     }
   } catch (err) {
     if (target) {
-      target.postMessage({ status: 'error', error: err.message }, '*');
+      target.postMessage({ status: 'error', error: err.message || String(err) }, '*');
     }
   }
 }
